@@ -1,252 +1,36 @@
-# Skapa en Banksajt och publicera på aws
+# Banksajt med databas
 
-I dagens uppgift ska vi öva på att skapa en react-sajt med backend i express och publicera den på en ec2 instans i aws.
+**Publicerad sajt:** http://13.61.15.216:3002
 
-### Data i backend
+En enkel bank byggd med Next.js (frontend) och Express (backend). I den här versionen sparas all data i en **MySQL-databas** istället för i arrayer, så att användare, konton och saldon finns kvar när servern startas om.
 
-I bankens backend finns tre arrayer: En array `users` för användare, en array `accounts` för bankkonton och en array `sessions` för engångslösenord`.
+## Databasen
 
-**Users**
-Varje användare har ett id, ett användarnamn och ett lösenord.
+Backend skapar databasen `bank` och tabellerna automatiskt när den startar (`backend/db.js`):
 
-```
-[{id: 101, username: "Joe", password: "hemligt" }, ...]
-```
+| Tabell     | Kolumner                               | Innehåll                                            |
+| ---------- | -------------------------------------- | --------------------------------------------------- |
+| `users`    | `id`, `username`, `password`           | Användare. `username` är unikt.                     |
+| `accounts` | `id`, `user_id`, `amount`              | Ett bankkonto per användare, kopplat via `user_id`. |
+| `sessions` | `id`, `user_id`, `token`, `created_at` | Engångslösenord som skapas vid inloggning.          |
 
-**Accounts**
-Varje bankkonto har ett id, ett användarid och ett saldo.
+Alla SQL-frågor använder `?`-platshållare (prepared statements) via `mysql2`, så att användarens input aldrig klistras in direkt i SQL-koden. Det skyddar mot SQL-injektion.
 
-```
-[{id: 1, userId: 101, amount: 200 }, ...]
-```
+## Endpoints (CRUD)
 
-**Sessions**
-När en användare loggar in skapas ett engångslösenord. Engångslösenordet och användarid läggs i sessions arrayen.
+| Endpoint                         | SQL                 | Beskrivning                                          |
+| -------------------------------- | ------------------- | ---------------------------------------------------- |
+| `POST /users`                    | `INSERT`            | Skapar användare och ett konto med 0 kr              |
+| `POST /sessions`                 | `SELECT` + `INSERT` | Loggar in och skapar ett sexsiffrigt engångslösenord |
+| `POST /me/accounts`              | `SELECT`            | Visar saldot för den som äger engångslösenordet      |
+| `POST /me/accounts/transactions` | `UPDATE`            | Sätter in pengar på kontot                           |
 
-```
-[{userId: 101, token: "nwuefweufh" }, ...]
-```
+En ogiltig token ger status 401, och ett upptaget användarnamn ger status 409.
 
-### Sidor på sajten
+## Köra lokalt (med MAMP)
 
-Banken har följande sidor på sin sajt:
-
-**Landningssida**
-Ska innehålla navigering med länkar till Hem, logga in och skapa användare och en hero-section med knapp till skapa användare
-
-**Skapa användare**
-Ett fält för användarnamn och ett för lösenord. Datat ska sparas i arrayen users i backend och ett bankkonto skapas i backend med 0 kr som saldo.
-
-**Logga in**
-Ett fält för användarnamn och ett för lösenord och en logga in knapp. När man klickat på knappen ska man få tillbaka sitt engångslösenord i response och skickas till kontosidan med useRouter.
-
-**Kontosida**
-Här kan man se sitt saldo och sätta in pengar på kontot. För att göra detta behöver man skicka med sitt engångslösenord till backend.
-
-## Hur du klarar uppgiften
-
-1. Klicka på knappen i uppgfiten för att kopiera repot till ditt github-konto
-2. Klona repot till din dator med `git clone ...`
-
-### Skapa frontend
-
-1. Skriv `npx create-next-app frontend`.
-2. Gå in i projektet: `cd frontend`.
-
-### Skapa backend
-
-1. Backa en nivå med `cd ..`.
-1. Skapa en folder: backend och gå med `cd` in i foldern.
-1. Skriv `npm init` och tryck Enter på alla frågor.
-1. Lägg till `"type": "module"`i package.json
-1. I scripts i package.json lägg till: `"start": "node server.js", "dev": "nodemon server.js"`
-1. Installera dependencies: `npm i express cors body-parser`
-1. Installera nodemon som dev dependency: `npm i -D nodemon`
-1. Börja skriva kod i `server.js`
-
-### Endpoints och arrayer
-
-1. I backend skapa tre tomma arrayer: `users`, `accounts` och `sessions`.
-2. Skapa endpoints för:
-
-- Skapa användare (POST): "/users"
-- Logga in (POST): "/sessions"
-- Visa salodo (POST): "/me/accounts"
-- Sätt in pengar (POST): "/me/accounts/transactions"
-
-3. När man loggar in ska ett engångslösenord skapas och skickas tillbaka i response.
-4. När man hämtar saldot ska samma engångslösenord skickas med i Post.
-
-### Startkod för server.js i backend
-
-```
-import express from 'express';
-import bodyParser from 'body-parser';
-import cors from 'cors';
-
-const app = express();
-const port = process.env.PORT || 3001;
-
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// Generera engångslösenord
-function generateOTP() {
-    // Generera en sexsiffrig numerisk OTP
-    const otp = Math.floor(100000 + Math.random() * 900000);
-    return otp.toString();
-}
-
-// Din kod här. Skriv dina arrayer
-
-
-// Din kod här. Skriv dina routes:
-
-// Starta servern
-app.listen(port, () => {
-    console.log(`Bankens backend körs på http://localhost:${port}`);
-});
-
-```
-
-### Exempel på fetch för POST i frontend
-
-```
-fetch('http://localhost:3001/users', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-        username: 'Användarnamn',
-        password: 'Lösenord',
-    }),
-})
-.then(response => response.json())
-.then(data => console.log(data))
-.catch((error) => {
-    console.error('Error:', error);
-});
-
-```
-
-## Automatiska tester – Filstruktur för godkänt nivå
-
-Repositoryt innehåller automatiska tester som körs med GitHub Actions. För att testerna ska kunna starta och använda din lösning måste du följa strukturen nedan. Du får organisera koden inuti mapparna som du vill.
-
-### Projektstruktur och kommandon
-
-```text
-frontend/                 # Next.js-projekt
-  package.json
-  package-lock.json
-backend/                  # Express-projekt
-  package.json
-  package-lock.json
-  server.js
-```
-
-- Använd `npm` så att båda projekten innehåller en `package-lock.json`.
-- `npm run dev` i `frontend` ska starta Next.js på port `3000`.
-- `npm run build` i `frontend` ska bygga projektet utan fel.
-- `npm start` i `backend` ska starta Express på port `3001`.
-- Frontend ska anropa backend på `http://127.0.0.1:3001`.
-
-### Sidor och formulär
-
-Följande routes ska finnas:
-
-- `/` – landningssida med rubrik, navigation och hero-knapp eller länk.
-- `/register` – skapa användare.
-- `/login` – logga in.
-- `/account` – visa saldo och sätt in pengar.
-
-Alla formulärfält ska ha en kopplad `label` så att de går att hitta med sitt namn. Använd tydliga svenska eller engelska namn, exempelvis `Användarnamn`, `Lösenord` och `Belopp`. Efter en lyckad inloggning ska användaren skickas till `/account`. Saldot ska visas med valutan `kr` eller `SEK` och uppdateras efter en insättning.
-
-### API-format
-
-Alla endpoints tar emot och svarar med JSON. Ett lyckat anrop ska ge en statuskod inom `200`–`299`.
-
-```text
-POST /users
-Body: { "username": "Joe", "password": "hemligt" }
-
-POST /sessions
-Body: { "username": "Joe", "password": "hemligt" }
-Response: { "token": "123456" }
-
-POST /me/accounts
-Body: { "token": "123456" }
-Response: { "amount": 0 }
-
-POST /me/accounts/transactions
-Body: { "token": "123456", "amount": 250 }
-Response: { "amount": 250 }
-```
-
-Engångslösenordet ska vara en sträng med sex siffror. En ogiltig token till `/me/accounts` ska ge status `401` eller `403`.
-
-### Kör samma tester lokalt
-
-Installera först dependencies i alla tre mappar och bygg frontend:
-
-```bash
-npm ci --prefix frontend
-npm ci --prefix backend
-npm ci --prefix tests
-cd tests && npx playwright install chromium && cd ..
-npm run build --prefix frontend
-npm test --prefix tests
-```
-
-Testkommandot startar frontend och backend automatiskt och stänger dem efter testkörningen.
-
-## Publicera på aws
-
-1. Överför hela projektet till din ec2-instans med t.ex. `rsync`
-
-2. Logga in på din instans med ssh och gå med cd dit projektet ligger.
-
-3. Installera Node.js om det inte redan är installerat.
-
-4. Navigera till din backend-mapp och starta din server med node server.js.
-
-5. Navigera till din frontend-mapp i ett nytt terminalfönster. Kör följande:
-
-```
-npm install
-npm run build
-npm run start
-```
-
-6. Testa att det funkar genom att gå till din sajt i en webbläsare.
-
----
-
-### :boom: Success!
-
-Efter denna uppgift ska ni kunna skapa en fullstack sajt med api och publicera på aws.
-
----
-
-### :runner: VG - uppgift
-
-1. Googla eller fråga ai hur du kan köra frontend och backend i bakgrunden, så att inte sajten går ner när du stänger terminalen. Detta kan t.ex. göras med `pm2`. Skriv sedan länken till din sajt i README.md
-
----
-
-# Min lösning
-
-**Publicerad sajt:** http://13.61.15.216:3000
-
-## Så är projektet byggt
-
-- `frontend/` är ett Next.js-projekt med sidorna `/` (startsida), `/register` (skapa användare), `/login` (logga in) och `/account` (saldo och insättning).
-- `backend/` är ett Express-projekt i `server.js` med arrayerna `users`, `accounts` och `sessions` och endpoints för `POST /users`, `POST /sessions`, `POST /me/accounts` och `POST /me/accounts/transactions`.
-- Vid inloggning skapas ett sexsiffrigt engångslösenord som sparas i `sessions` och skickas tillbaka till frontend. Frontend skickar med det när saldot hämtas och vid insättning. En ogiltig token ger status 401.
-
-## Köra lokalt
+1. Starta **MAMP** (MySQL på port 8889 med användare `root` och lösenord `root`, som är standardinställningarna).
+2. Installera och starta:
 
 ```bash
 npm install --prefix backend
@@ -255,23 +39,28 @@ npm start --prefix backend      # backend på http://localhost:3001
 npm run dev --prefix frontend   # frontend på http://localhost:3000
 ```
 
-## Publicering på AWS
+Databasinställningarna kan ändras med miljövariablerna `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` och `DB_NAME`, till exempel i en fil `backend/.env` (som inte laddas upp till GitHub).
 
-1. Skapade en EC2-instans (Ubuntu, t3.micro) i regionen Europe (Stockholm) och öppnade port 22 (SSH) och 3000 (webbsidan) i säkerhetsgruppen.
-2. Loggade in med `ssh`, lade till 2 GB swap (instansen har bara 1 GB minne) och installerade Node.js 24 med `nvm`.
-3. Överförde projektet med `rsync` (utan `node_modules` och `.next`), installerade med `npm ci` och byggde frontend med `npm run build`.
-4. På servern anropar frontend sin egen adress (till exempel `/users`), och Next.js skickar vidare anropen till backend på `http://127.0.0.1:3001` via `rewrites` i `next.config.ts`. Därför behöver webbläsaren inte känna till serverns IP-adress, och port 3001 behöver inte vara öppen utåt. Lokalt och i testerna anropar frontend backend direkt via `NEXT_PUBLIC_API_URL`.
-
-## VG: Köra i bakgrunden med pm2
-
-För att sajten inte ska gå ner när terminalen stängs körs frontend och backend med processhanteraren **pm2**:
+Testerna i `tests/` kan köras lokalt medan MAMP är igång:
 
 ```bash
-npm install -g pm2
-cd ~/banksajt/backend && pm2 start server.js --name backend
-cd ~/banksajt/frontend && pm2 start npm --name frontend -- start
-pm2 save
-pm2 startup   # och därefter det sudo-kommando som pm2 skriver ut
+npm ci --prefix tests
+npm run build --prefix frontend
+npm test --prefix tests
 ```
 
-`pm2 save` sparar vilka program som körs, och `pm2 startup` gör att pm2 startar automatiskt och återställer dem om servern startas om. Med `pm2 status` ser man att båda är `online`, och `pm2 logs` visar loggarna.
+## VG: Databasen på AWS
+
+Sajten och databasen körs på samma EC2-instans (Ubuntu, Europe/Stockholm):
+
+1. Installerade MySQL på servern med `sudo apt install mysql-server`.
+2. Skapade databasen `bank` och en egen databasanvändare `bankuser` med ett slumpat lösenord (istället för `root`), med behörighet bara till databasen `bank`.
+3. Sparade inställningarna i `backend/.env` på servern. Filen finns bara på servern och ligger i `.gitignore`, så lösenordet hamnar aldrig på GitHub.
+4. MySQL lyssnar bara på `127.0.0.1`, alltså kan databasen bara nås inifrån servern, inte från internet.
+5. Överförde projektet med `rsync`, byggde frontend med `BACKEND_URL=http://127.0.0.1:3003` och startade backend (port 3003) och frontend (port 3002) med **pm2**, så att sajten fortsätter köra när terminalen stängs och startar igen om servern startas om. Port 3002 öppnades i säkerhetsgruppen.
+
+## Förbättringar i en riktig bank
+
+- Lösenorden sparas i klartext, precis som i lektionsexemplet. I en riktig bank skulle de hashas, till exempel med `bcrypt`.
+- Engångslösenorden går aldrig ut. De borde få en giltighetstid (kolumnen `created_at` finns redan för det).
+- Sajten använder `http`. En riktig bank måste använda `https`.
